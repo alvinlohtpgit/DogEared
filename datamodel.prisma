@@ -1,0 +1,20 @@
+type Useraccount{
+    id: ID! @id
+    registered_source: String!
+    twitter_id: String
+    twitter_display_name: String
+    twitter_screen_name: String
+    twitter_profile_image: String
+    bookmarks: [Bookmark!]! @relation(link: INLINE)
+}
+
+type Bookmark{
+    id: ID! @id
+    createdAt: DateTime! @createdAt
+
+}
+
+type User {
+  id: ID! @id
+  name: String!
+}

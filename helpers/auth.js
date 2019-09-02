@@ -13,5 +13,5 @@ auth.twitter_oauth = {
 
 auth.twitter_webhook_environment = process.env.TWITTER_WEBHOOK_ENV
 auth.twitter_webhook_url = process.env.TWITTER_WEBHOOK_URL
-
+auth.path_to_save = '/home/alvinloh/Documents/Projects/per/DogEared/dump'
 module.exports = auth;

@@ -11,10 +11,15 @@ type Useraccount{
 type Bookmark{
     id: ID! @id
     createdAt: DateTime! @createdAt
-
-}
-
-type User {
-  id: ID! @id
-  name: String!
+    updatedAt: DateTime! @updatedAt
+    belongsTo: Useraccount!
+    tags: [String!]
+    url: String!
+    displayurl: String!
+    description: String
+    fromsource: String!
+    tweetsourcetext: String
+    tweetsourceuserid: String
+    tweetsourceusername: String
+    tweetsourcescreenname: String
 }

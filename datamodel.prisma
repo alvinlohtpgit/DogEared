@@ -1,7 +1,7 @@
 type Useraccount{
     id: ID! @id
     registered_source: String!
-    twitter_id: String
+    twitter_id: String @unique
     twitter_display_name: String
     twitter_screen_name: String
     twitter_profile_image: String

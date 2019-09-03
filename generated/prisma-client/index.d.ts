@@ -681,6 +681,7 @@ export interface BookmarkWhereInput {
 
 export type UseraccountWhereUniqueInput = AtLeastOne<{
   id: Maybe<ID_Input>;
+  twitter_id?: Maybe<String>;
 }>;
 
 export interface BookmarkUpdateManyDataInput {

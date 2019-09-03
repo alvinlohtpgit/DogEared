@@ -6,6 +6,7 @@ var axios = require('axios');
 var OAuth = require('oauth-1.0a');
 var crypto = require('crypto');
 var fs = require('fs');
+const {prisma} = require('../generated/prisma-client');
 var router = express.Router();
 
 // Initialize oAuth
@@ -122,7 +123,125 @@ const registerSubscription = async function(){
     return response.data;
 };
 
+// Helper function to parse a tweet and insert into the database
+const parseTweetToBookmark = async function(tweetmsg){
+    let tweetobj = JSON.parse(tweetmsg);
+    let tweet_type = '';
+
+    // Check if it is a tweet_create_event which means it is a retweet or a DM
+    let counter = 0;
+
+    for (var i in tweetobj){
+        if (counter === 1){
+            tweet_type = i;
+        }
+        counter++;
+    }
+
+    if (tweet_type === 'tweet_create_events'){
+        let createeventobj = tweetobj['tweet_create_events'][0];
+
+        // Extract the tweet details that we need
+        let tweet_user_id = createeventobj.user.id_str;
+        let tweet_user_display_name = createeventobj.user.name;
+        let tweet_user_screen_name = createeventobj.user.screen_name;
+        let tweet_user_profile_image = createeventobj.user.profile_image_url_https;
+
+        // Check if there is an extended key, if there is, the actual URL is inside there
+        let quotedStatusNode =createeventobj.quoted_status;
+        let hasExtendedTweetNode = false;
+
+        for (i in quotedStatusNode){
+            if (i === 'extended_tweet'){
+                hasExtendedTweetNode = true;
+            }
+        }
+
+        console.log('Detecting Extended Tweet - ' + hasExtendedTweetNode);
+
+        let bookmark_fromsource = 'twitter';
+        let bookmark_url = '';
+        let bookmark_displayurl = '';
+        let bookmark_tweet_source_text = '';
+        let bookmark_tweet_source_userid = '';
+        let bookmark_tweet_source_username = '';
+        let bookmark_tweet_source_user_screenname = '';
+
+        bookmark_tweet_source_userid = createeventobj.quoted_status.user.id_str
+        bookmark_tweet_source_username = createeventobj.quoted_status.user.name;
+        bookmark_tweet_source_user_screenname = createeventobj.quoted_status.user.screen_name;
+
+        if (hasExtendedTweetNode === false) {
+            bookmark_url = createeventobj.quoted_status.entities.urls[0].expanded_url;
+            bookmark_displayurl = createeventobj.quoted_status.entities.urls[0].display_url;
+            bookmark_tweet_source_text = createeventobj.quoted_status.text;
+        }
+        else{
+            bookmark_url = createeventobj.quoted_status.extended_tweet.entities.urls[0].expanded_url;
+            bookmark_displayurl = createeventobj.quoted_status.extended_tweet.entities.urls[0].display_url;
+            bookmark_tweet_source_text = createeventobj.quoted_status.extended_tweet.full_text;
+        }
+
+
+        // Check to see if the user already exist in our database
+        let userCount = await prisma.useraccountsConnection( {
+            where:{
+                registered_source: 'twitter',
+                twitter_id: tweet_user_id
+            }
+        }).aggregate().count();
+
+        // If user does not exist, create the user, else retrieve the user if exist
+        let userRecord = '';
+        if (userCount < 1){
+            userRecord = await prisma.createUseraccount({
+                registered_source: 'twitter',
+                twitter_id:  tweet_user_id,
+                twitter_display_name: tweet_user_display_name,
+                twitter_screen_name: tweet_user_screen_name,
+                twitter_profile_image: tweet_user_profile_image
+            });
+            console.log('Created User ID : ' + tweet_user_id);
+        }
+        else{
+            // Retrieve the single user record
+            userRecord = await prisma.useraccount({twitter_id: tweet_user_id});
+            console.log('Retrieved User ID : ' + tweet_user_id);
+        }
+
+        // Populate the user record with the bookmark supplied
+        let bookmarkRecord = await prisma.createBookmark({
+            belongsTo: {
+               connect: { twitter_id: tweet_user_id}
+            },
+            url: bookmark_url,
+            displayurl: bookmark_displayurl,
+            fromsource: bookmark_fromsource,
+            tweetsourcetext: bookmark_tweet_source_text,
+            tweetsourceuserid: bookmark_tweet_source_userid,
+            tweetsourceusername: bookmark_tweet_source_username,
+            tweetsourcescreenname: bookmark_tweet_source_user_screenname
+        });
+
+        console.log('Created bookmark ID ' + bookmarkRecord.id);
+
+
+    }  // Close tweet_type === tweet_create_events
+
+    return '12345';
+};
+
 // *** Service EndPoints
+
+// Test Method to parse tweet
+router.get('/testparse', function(req,res){
+    let response = '';
+    fs.readFile('/home/alvinloh/Documents/Projects/per/DogEared/dump/2019811134.txt' , 'utf8' ,  async function (err, data){
+        response = await parseTweetToBookmark(data);
+        res.send(response);
+    });
+});
+
 
 // Get all registered webhooks
 router.get('/list', async function (req, res) {
@@ -202,7 +321,6 @@ router.post('/twitter', async function (req, res){
 
     let dateobj = new Date();
     let currentTime = dateobj.getFullYear().toString() + dateobj.getMonth().toString() + dateobj.getDay().toString() + dateobj.getHours().toString() + dateobj.getMinutes().toString() + '.txt';
-
 
     var fileName = path.join(auth.path_to_save , currentTime);
     // Just record down and dump it into files

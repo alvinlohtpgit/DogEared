@@ -778,6 +778,7 @@ input UseraccountWhereInput {
 
 input UseraccountWhereUniqueInput {
   id: ID
+  twitter_id: String
 }
 `
       }
